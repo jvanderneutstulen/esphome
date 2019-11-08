@@ -119,6 +119,9 @@ void WebServer::setup() {
 void WebServer::dump_config() {
   ESP_LOGCONFIG(TAG, "Web Server:");
   ESP_LOGCONFIG(TAG, "  Address: %s:%u", network_get_address().c_str(), this->base_->get_port());
+  if (this->using_auth()) {
+    ESP_LOGCONFIG(TAG, "  Basic authentication enabled");
+  }
 }
 float WebServer::get_setup_priority() const { return setup_priority::WIFI - 1.0f; }
 
@@ -413,11 +416,15 @@ void WebServer::handle_light_request(AsyncWebServerRequest *request, UrlMatch ma
       if (request->hasParam("color_temp"))
         call.set_color_temperature(request->getParam("color_temp")->value().toFloat());
 
-      if (request->hasParam("flash"))
-        call.set_flash_length((uint32_t) request->getParam("flash")->value().toFloat() * 1000);
+      if (request->hasParam("flash")) {
+        float length_s = request->getParam("flash")->value().toFloat();
+        call.set_flash_length(static_cast<uint32_t>(length_s * 1000));
+      }
 
-      if (request->hasParam("transition"))
-        call.set_transition_length((uint32_t) request->getParam("transition")->value().toFloat() * 1000);
+      if (request->hasParam("transition")) {
+        float length_s = request->getParam("transition")->value().toFloat();
+        call.set_transition_length(static_cast<uint32_t>(length_s * 1000));
+      }
 
       if (request->hasParam("effect")) {
         const char *effect = request->getParam("effect")->value().c_str();
@@ -490,6 +497,10 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
   return false;
 }
 void WebServer::handleRequest(AsyncWebServerRequest *request) {
+  if (this->using_auth() && !request->authenticate(this->username_, this->password_)) {
+    return request->requestAuthentication();
+  }
+
   if (request->url() == "/") {
     this->handle_index_request(request);
     return;
