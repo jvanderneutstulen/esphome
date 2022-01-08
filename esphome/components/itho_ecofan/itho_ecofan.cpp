@@ -78,10 +78,6 @@ void IthoEcoFanComponent::setup() {
   this->store_.pin = this->irq_->to_isr();
   this->irq_->attach_interrupt(IthoEcoFanComponentStore::gpio_intr, &this->store_, gpio::INTERRUPT_RISING_EDGE);
 
-  // auto traits = fan::FanTraits(false, true);    // No oscillating, just speed
-  // this->fan_->set_traits(traits);
-  // this->fan_->add_on_state_callback([this]() { this->next_update_ = true; });
-
   // Set CC1101 in receive mode
   this->itho_cc1101_->enable_receive_mode();
 }
@@ -97,95 +93,80 @@ void IthoEcoFanComponent::loop() {
 
     {
         uint8_t speed;
+
         if (this->itho_cc1101_->get_fan_speed(this->peer_rf_address_, &speed)) {
 
-//            auto call = this->fan_->make_call();
-//
-//            if (speed > 0x00) {
-//                call.set_state(true);
-//
-//                if (speed < 0x40) {
-//                    call.set_speed(fan::FAN_SPEED_LOW);
-//                } else if (speed < 0x80) {
-//                    call.set_speed(fan::FAN_SPEED_MEDIUM);
-//                } else {
-//                    call.set_speed(fan::FAN_SPEED_HIGH);
-//                }
-//            } else {
-//                call.set_state(false);
-//            }
-//            call.perform();
-//
-//            // next_update should not run after RF status update
-//            this->next_update_ = false;
+			// speed 0x1 -> C8
+			uint8_t min_speed = 0x01;
+			uint8_t max_speed = 0xC8;
+
+			this->fan_speed_measured_ = ((speed - min_speed) * 1.0) / (max_speed - min_speed);
+
+			this->itho_ecofan_callback_.call();
         }
     }
+
     this->itho_cc1101_->enable_receive_mode();
   }
 
-//  if (!this->next_update_) {
-//    return;
-//  }
-//  this->next_update_ = false;
-//
-//  {
-//    std::string speed;
-//
-//    if (this->fan_->state) {
-//      if (this->fan_->speed == fan::FAN_SPEED_LOW)
-//        speed = "low";
-//      else if (this->fan_->speed == fan::FAN_SPEED_MEDIUM)
-//        speed = "medium";
-//      else if (this->fan_->speed == fan::FAN_SPEED_HIGH)
-//        speed = "high";
-//    }
-//    ESP_LOGD(TAG, "Setting speed: '%s'", speed.c_str());
-//
-//    bool enable = this->fan_->state;
-//    if (enable) {
-//        ESP_LOGD(TAG, "Sending speed: '%s'", speed.c_str());
-//        this->send_command(speed);
-//    } else {
-//        ESP_LOGD(TAG, "Sending speed: min");
-//        this->send_command("min");
-//    }
-//
-//    ESP_LOGD(TAG, "Setting itho_ecofan state: %s", ONOFF(enable));
-//  }
 }
 
 float IthoEcoFanComponent::get_setup_priority() const { return setup_priority::DATA; }
+
+void IthoEcoFanComponent::set_fan_speed(float value) {
+
+	this->fan_speed_setting_ = value;
+
+	if (std::isnan(this->fan_speed_measured_)) {
+		ESP_LOGD(TAG, "Current speed unknown, ignore set");
+		return;
+	}
+
+    std::string speed;
+
+	if (value < 0.25) {
+		speed = "low";
+	} else if (value < 0.70) {
+		speed = "medium";
+	} else {
+		speed = "high";
+	}
+
+    ESP_LOGD(TAG, "Setting speed: '%s'", speed.c_str());
+
+    this->send_command_(speed);
+}
 
 //void IthoEcoFanComponent::join() {
 //  ESP_LOGD(TAG, "Fan '%s': join() called", this->fan_->get_name().c_str());
 //  this->send_command("join");
 //}
 //
-//void IthoEcoFanComponent::send_command(std::string command) {
-//
-//    this->itho_cc1101_->send_command(command);
-//
-//    // After sending command switch back to receive mode
-//    this->itho_cc1101_->enable_receive_mode();
-//
-//    this->set_timeout("send_command", 40, [this]() {
-//            this->schedule_send_packet_();
-//    });
-//}
-//
-//void IthoEcoFanComponent::schedule_send_packet_() {
-//
-//    uint8_t tries_left =  this->itho_cc1101_->send_packet();
-//
-//    // After sending packet switch back to receive mode
-//    this->itho_cc1101_->enable_receive_mode();
-//
-//    if (tries_left > 0) {
-//        this->set_timeout("send_command", 50, [this]() {
-//                this->schedule_send_packet_();
-//        });
-//    }
-//}
+void IthoEcoFanComponent::send_command_(std::string command) {
+
+    this->itho_cc1101_->send_command(command);
+
+    // After sending command switch back to receive mode
+    this->itho_cc1101_->enable_receive_mode();
+
+    this->set_timeout("send_command", 40, [this]() {
+            this->schedule_send_packet_();
+    });
+}
+
+void IthoEcoFanComponent::schedule_send_packet_() {
+
+    uint8_t tries_left =  this->itho_cc1101_->send_packet();
+
+    // After sending packet switch back to receive mode
+    this->itho_cc1101_->enable_receive_mode();
+
+    if (tries_left > 0) {
+        this->set_timeout("send_command", 50, [this]() {
+                this->schedule_send_packet_();
+        });
+    }
+}
 
 } // namespace itho_ecofan
 }  // namespace esphome

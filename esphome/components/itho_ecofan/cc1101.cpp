@@ -97,7 +97,7 @@ uint8_t CC1101::receive() {
     uint8_t marcstate = 0xFF;
     uint8_t counter = 0;
 
-    ESP_LOGVV(TAG, "CC1101 receive");
+    ESP_LOGVV(TAG, "CC1101 enable receive");
 
     //this->sidle();
     //this->write_command_strobe(CC1101_SFRX);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/automation.h"
 #include "esphome/components/spi/spi.h"
 
 #include "cc1101.h"
@@ -50,6 +51,12 @@ class IthoEcoFanComponent : public Component,
   //    return f;
   //}
 
+  void add_on_itho_ecofan_update_callback(std::function<void()> &&callback) {
+    itho_ecofan_callback_.add(std::move(callback));
+  }
+
+  float get_fan_speed() const { return fan_speed_measured_; }
+  void set_fan_speed(float value);
 
  protected:
   std::string format_addr_(std::vector<uint8_t> addr);
@@ -64,6 +71,14 @@ class IthoEcoFanComponent : public Component,
   IthoCC1101 *itho_cc1101_{nullptr};
 
   IthoEcoFanComponentStore store_;
+
+  CallbackManager<void()> itho_ecofan_callback_;
+
+  float fan_speed_measured_ = NAN;
+  float fan_speed_setting_ = NAN;
+
+  void send_command_(std::string command);
+  void schedule_send_packet_();
 
   bool next_update_{true};
 };
