@@ -224,7 +224,7 @@ std::vector<uint8_t> CC1101::read_burst_register(const uint8_t address, const ui
         }
     } else if (address == 0x3E) {
         // PA table registers
-        count = min(max_length, (uint8_t) 8);
+        count = std::min(max_length, (uint8_t) 8);
     } else if (address == 0x3F) {
         // FIFO data
         count = max_length;

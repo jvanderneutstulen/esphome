@@ -9,12 +9,12 @@ namespace itho_ecofan {
 
 static const char *TAG = "itho_ecofan.component";
 
-void ICACHE_RAM_ATTR IthoEcoFanComponentStore::gpio_intr(IthoEcoFanComponentStore *arg) {
+void IRAM_ATTR HOT IthoEcoFanComponentStore::gpio_intr(IthoEcoFanComponentStore *arg) {
   arg->data_available = true;
   arg->count = (arg->count + 1) % 0xFF;
 }
 
-void ICACHE_RAM_ATTR IthoEcoFanComponentStore::reset(IthoEcoFanComponentStore *arg) {
+void IRAM_ATTR HOT IthoEcoFanComponentStore::reset(IthoEcoFanComponentStore *arg) {
   arg->data_available = false;
 }
 
