@@ -137,11 +137,11 @@ void IthoEcoFanComponent::set_fan_speed(float value) {
     this->send_command_(speed);
 }
 
-//void IthoEcoFanComponent::join() {
-//  ESP_LOGD(TAG, "Fan '%s': join() called", this->fan_->get_name().c_str());
-//  this->send_command("join");
-//}
-//
+void IthoEcoFanComponent::join() {
+  ESP_LOGD(TAG, "Fan join() called");
+  this->send_command_("join");
+}
+
 void IthoEcoFanComponent::send_command_(std::string command) {
 
     this->itho_cc1101_->send_command(command);

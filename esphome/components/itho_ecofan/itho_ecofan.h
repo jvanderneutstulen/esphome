@@ -45,11 +45,7 @@ class IthoEcoFanComponent : public Component,
       }
   }
 
-  //IthoEcoFanRftFan *get_fan() {
-  //    auto f = new IthoEcoFanRftFan(this);
-  //    this->fan_ = f;
-  //    return f;
-  //}
+  void join();
 
   void add_on_itho_ecofan_update_callback(std::function<void()> &&callback) {
     itho_ecofan_callback_.add(std::move(callback));
