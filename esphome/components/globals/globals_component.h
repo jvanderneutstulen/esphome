@@ -37,7 +37,13 @@ template<typename T> class RestoringGlobalsComponent : public Component {
   T &value() { return this->value_; }
 
   void setup() override {
-    this->rtc_ = global_preferences->make_preference<T>(1944399030U ^ this->name_hash_);
+    if (this->restore_from_rtc_) {
+#ifdef USE_ESP32_PREFERENCES_RTC
+      this->rtc_ = rtc_preferences->make_preference<T>(1944399030U ^ this->name_hash_);
+#endif
+    } else {
+      this->rtc_ = global_preferences->make_preference<T>(1944399030U ^ this->name_hash_);
+    }
     this->rtc_.load(&this->value_);
     memcpy(&this->last_checked_value_, &this->value_, sizeof(T));
   }
@@ -49,6 +55,7 @@ template<typename T> class RestoringGlobalsComponent : public Component {
   void on_shutdown() override { store_value_(); }
 
   void set_name_hash(uint32_t name_hash) { this->name_hash_ = name_hash; }
+  void set_restore_from_rtc(bool restore_from_rtc) { this->restore_from_rtc_ = restore_from_rtc; }
 
  protected:
   void store_value_() {
@@ -62,6 +69,7 @@ template<typename T> class RestoringGlobalsComponent : public Component {
   T value_{};
   T last_checked_value_{};
   uint32_t name_hash_{};
+  bool restore_from_rtc_{false};
   ESPPreferenceObject rtc_;
 };
 
@@ -80,7 +88,14 @@ template<typename T, uint8_t SZ> class RestoringGlobalStringComponent : public C
 
   void setup() override {
     char temp[SZ];
-    this->rtc_ = global_preferences->make_preference<uint8_t[SZ]>(1944399030U ^ this->name_hash_);
+
+    if (this->restore_from_rtc_) {
+#ifdef USE_ESP32_PREFERENCES_RTC
+      this->rtc_ = rtc_preferences->make_preference<uint8_t[SZ]>(1944399030U ^ this->name_hash_);
+#endif
+    } else {
+      this->rtc_ = global_preferences->make_preference<uint8_t[SZ]>(1944399030U ^ this->name_hash_);
+    }
     bool hasdata = this->rtc_.load(&temp);
     if (hasdata) {
       this->value_.assign(temp + 1, temp[0]);
@@ -95,6 +110,7 @@ template<typename T, uint8_t SZ> class RestoringGlobalStringComponent : public C
   void on_shutdown() override { store_value_(); }
 
   void set_name_hash(uint32_t name_hash) { this->name_hash_ = name_hash; }
+  void set_restore_from_rtc(bool restore_from_rtc) { this->restore_from_rtc_ = restore_from_rtc; }
 
  protected:
   void store_value_() {
@@ -123,6 +139,7 @@ template<typename T, uint8_t SZ> class RestoringGlobalStringComponent : public C
   T value_{};
   T last_checked_value_{};
   uint32_t name_hash_{};
+  bool restore_from_rtc_{false};
   ESPPreferenceObject rtc_;
 };
 

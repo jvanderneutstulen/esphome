@@ -8,7 +8,9 @@ from esphome.const import (
     CONF_TYPE,
     CONF_VALUE,
 )
-from esphome.core import CoroPriority, coroutine_with_priority
+from esphome.core import CORE, CoroPriority, coroutine_with_priority
+import esphome.final_validate as fv
+from esphome.types import ConfigType
 
 CODEOWNERS = ["@esphome/core"]
 globals_ns = cg.esphome_ns.namespace("globals")
@@ -19,6 +21,7 @@ RestoringGlobalStringComponent = globals_ns.class_(
 )
 GlobalVarSetAction = globals_ns.class_("GlobalVarSetAction", automation.Action)
 
+CONF_RESTORE_FROM_RTC = "restore_from_rtc"
 CONF_MAX_RESTORE_DATA_LENGTH = "max_restore_data_length"
 
 
@@ -29,9 +32,44 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Required(CONF_TYPE): cv.string_strict,
         cv.Optional(CONF_INITIAL_VALUE): cv.string_strict,
         cv.Optional(CONF_RESTORE_VALUE, default=False): cv.boolean,
+        cv.Optional(CONF_RESTORE_FROM_RTC, default=False): cv.boolean,
         cv.Optional(CONF_MAX_RESTORE_DATA_LENGTH): cv.int_range(0, 254),
     }
 ).extend(cv.COMPONENT_SCHEMA)
+
+
+def _final_validate(config: ConfigType) -> ConfigType:
+    """Validate requirements when using rtc memory."""
+    # Local imports to avoid circular dependencies
+    from esphome.components.esp32_rtc_preferences import DOMAIN as RTC_DOMAIN
+
+    full_config = fv.full_config.get()
+    errs: list[cv.Invalid] = []
+
+    if config[CONF_RESTORE_FROM_RTC]:
+        if not CORE.is_esp32:
+            errs.append(
+                cv.Invalid(
+                    "Restore from RTC requires an ESP32.",
+                    path=[CONF_RESTORE_FROM_RTC],
+                )
+            )
+        elif RTC_DOMAIN not in full_config:
+            errs.append(
+                cv.Invalid(
+                    "Restore from RTC requires configured ESP32 RTC Preferences component. "
+                    "Add 'esp32_rtc_preferences:' to your configuration.",
+                    path=[CONF_RESTORE_FROM_RTC],
+                )
+            )
+
+    if errs:
+        raise cv.MultipleInvalid(errs)
+
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = cv.Schema(_final_validate)
 
 
 # Run with low priority so that namespaces are registered first
@@ -39,6 +77,7 @@ CONFIG_SCHEMA = cv.Schema(
 async def to_code(config):
     type_ = cg.RawExpression(config[CONF_TYPE])
     restore = config[CONF_RESTORE_VALUE]
+    use_rtc = config[CONF_RESTORE_FROM_RTC]
 
     # Special casing the strings to their own class with a different save/restore mechanism
     if str(type_) == "std::string" and restore:
@@ -65,6 +104,7 @@ async def to_code(config):
             value = value.encode()
         hash_ = int(hashlib.md5(value).hexdigest()[:8], 16)
         cg.add(glob.set_name_hash(hash_))
+        cg.add(glob.set_restore_from_rtc(use_rtc))
 
 
 @automation.register_action(
