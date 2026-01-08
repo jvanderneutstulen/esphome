@@ -1,7 +1,7 @@
 from esphome import automation
 from esphome.automation import maybe_simple_id
 import esphome.codegen as cg
-from esphome.components import fan
+from esphome.components import cc1101, fan
 from esphome.components.fan import validate_preset_modes
 import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_PRESET_MODES
@@ -18,6 +18,7 @@ IthoEcoRftFan = itho_ecorft_ns.class_("IthoEcoRftFan", cg.Component, fan.Fan)
 # Actions
 JoinAction = itho_ecorft_ns.class_("JoinAction", automation.Action)
 
+CONF_CC1101_ID = "cc1101_id"
 CONF_RF_ADDRESS = "rf_address"
 CONF_PEER_RF_ADDRESS = "peer_rf_address"
 
@@ -44,6 +45,7 @@ CONFIG_SCHEMA = (
     fan.fan_schema(IthoEcoRftFan)
     .extend(
         {
+            cv.Required(CONF_CC1101_ID): cv.use_id(cc1101.CC1101Component),
             cv.Required(CONF_RF_ADDRESS): _validate_rf_address,
             cv.Optional(CONF_PEER_RF_ADDRESS): _validate_rf_address,
             cv.Optional(CONF_PRESET_MODES): validate_preset_modes,
@@ -72,6 +74,9 @@ async def to_code(config):
         SPEED_COUNT,
     )
     await cg.register_component(var, config)
+
+    cc1101_ = await cg.get_variable(config[CONF_CC1101_ID])
+    cg.add(var.set_cc1101(cc1101_))
 
     cg.add(var.set_rf_address(config[CONF_RF_ADDRESS].as_hex))
 

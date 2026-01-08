@@ -17,6 +17,11 @@ void IthoEcoRftFan::setup() {
   // Construct traits
   this->traits_ = fan::FanTraits(false, true, false, this->speed_count_);
   this->traits_.set_supported_preset_modes(this->preset_modes_);
+
+  if (this->cc1101_ == nullptr) {
+    this->mark_failed();
+  }
+  this->cc1101_->register_listener(this);
 }
 
 void IthoEcoRftFan::dump_config() { LOG_FAN("", "Itho EcoRft Fan", this); }
@@ -42,6 +47,11 @@ void IthoEcoRftFan::control(const fan::FanCall &call) {
 //                                  : this->set_itho_ecorft_levels_(0.0f, 1.0f, speed);
 //   }
 // }
+//
+
+void IthoEcoRftFan::on_packet(const std::vector<uint8_t> &packet, float freq_offset, float rssi, uint8_t lqi) {
+  ESP_LOGD("itho ", "packet %s rssi %.1f dBm lqi %u offset %.1f", format_hex(packet).c_str(), rssi, lqi, freq_offset);
+}
 
 }  // namespace itho_ecorft
 }  // namespace esphome
