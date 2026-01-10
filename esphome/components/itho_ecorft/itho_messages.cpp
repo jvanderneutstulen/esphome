@@ -1,14 +1,12 @@
-#include <span>
-#include <ranges>
-#include "itho_messages.h"
 #include "esphome/core/log.h"
+#include "itho_messages.h"
 
 namespace esphome {
 namespace itho_ecorft {
 
 static const char *const TAG = "fan.itho_ecorft.msg";
 
-IthoMessage *IthoMessage::decode(std::vector<uint8_t> packet) {
+IthoMessage *IthoMessage::decode(std::vector<uint8_t> packet, IthoEcoRftFan *parent) {
   uint8_t i = 0;
 
   // FIXME: Add size checks
@@ -86,6 +84,8 @@ IthoMessage *IthoMessage::decode(std::vector<uint8_t> packet) {
       return nullptr;
   }
 
+  msg->set_parent(parent);
+
   msg->set_type(msg_type);
   msg->set_device_id0(device_id0);
   msg->set_device_id1(device_id1);
@@ -115,6 +115,26 @@ void IthoFanStatusMessage::decode_payload(std::vector<uint8_t> payload) {
   }
 
   speed_percent_ = payload[2] >> 1;
+}
+
+void IthoFanStatusMessage::process_msg() {
+  if (this->speed_percent_ == 0xff) {
+    // No valid speed
+    return;
+  }
+  ESP_LOGD(TAG, "Fan speed is %d%%", this->speed_percent_);
+
+  int speed = 1;
+  if (this->speed_percent_ < 25) {
+    speed = 0;
+  } else if (this->speed_percent_ > 75) {
+    speed = 2;
+  }
+  this->parent_->state = speed > 0;
+  if (speed > 0) {
+    this->parent_->speed = speed;
+  }
+  this->parent_->publish_state();
 }
 
 }  // namespace itho_ecorft

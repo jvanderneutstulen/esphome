@@ -135,27 +135,12 @@ void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {
   }
   ESP_LOGVV(TAG, "Raw Itho message (%d) %s", msg.size(), format_hex(msg).c_str());
 
-  auto *msg_obj = IthoMessage::decode(msg);
+  auto *msg_obj = IthoMessage::decode(msg, this);
   if (msg_obj == nullptr) {
     return;
   }
 
-  if (msg_obj->get_opcode() == MessageOpcode::FAN_STATUS) {
-    IthoFanStatusMessage *m = static_cast<IthoFanStatusMessage *>(msg_obj);
-    ESP_LOGD(TAG, "Fan speed is %d%%", m->get_speed_percentage());
-
-    int speed = 1;
-    if (m->get_speed_percentage() < 25) {
-      speed = 0;
-    } else if (m->get_speed_percentage() > 75) {
-      speed = 2;
-    }
-    this->state = speed > 0;
-    if (speed > 0) {
-      this->speed = speed;
-    }
-    this->publish_state();
-  }
+  msg_obj->process_msg();
 }
 
 void IthoEcoRftFan::on_packet(const std::vector<uint8_t> &packet, float freq_offset, float rssi, uint8_t lqi) {

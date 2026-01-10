@@ -3,6 +3,10 @@
 #include <cinttypes>
 #include <vector>
 
+#include "esphome/core/helpers.h"
+
+#include "itho_ecorft.h"
+
 namespace esphome {
 namespace itho_ecorft {
 
@@ -35,10 +39,12 @@ class IthoMessageDecoder {
   // static IthoMessage *decode(std::vector<uint8_t> packet);
 };
 
-class IthoMessage {
+class IthoMessage : public Parented<IthoEcoRftFan> {
  public:
-  static IthoMessage *decode(std::vector<uint8_t> packet);
+  static IthoMessage *decode(std::vector<uint8_t> packet, IthoEcoRftFan *parent);
   static uint8_t calc_checksum(std::vector<uint8_t> packet, uint8_t len);
+
+  virtual void process_msg(){/* default ignore */};
 
   MessageOpcode get_opcode() { return opcode_; };
 
@@ -78,7 +84,8 @@ class IthoMessage {
 class IthoFanStatusMessage : public IthoMessage {
  public:
   IthoFanStatusMessage() { opcode_ = MessageOpcode::FAN_STATUS; };
-  uint8_t get_speed_percentage() { return speed_percent_; };
+
+  virtual void process_msg();
 
  private:
   void decode_payload(std::vector<uint8_t> payload) override;
