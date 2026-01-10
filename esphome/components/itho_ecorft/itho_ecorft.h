@@ -17,12 +17,14 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
   void set_cc1101(cc1101::CC1101Component *cc1101) { cc1101_ = cc1101; }
 
   void setup() override;
+  void setup_cc1101();
   void dump_config() override;
   fan::FanTraits get_traits() override { return this->traits_; }
 
   fan::FanCall join();
 
   void on_packet(const std::vector<uint8_t> &packet, float freq_offset, float rssi, uint8_t lqi);
+  void decode_packet(const std::vector<uint8_t> &packet);
 
  protected:
   int speed_count_{};
@@ -34,10 +36,7 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
   cc1101::CC1101Component *cc1101_{nullptr};
 
   void control(const fan::FanCall &call) override;
-  // void write_state_();
-
-  // void set_itho_ecorft_levels_(float a_level, float b_level);
-  // void set_itho_ecorft_levels_(float a_level, float b_level, float enable);
+  void write_state_();
 };
 
 template<typename... Ts> class JoinAction : public Action<Ts...> {
