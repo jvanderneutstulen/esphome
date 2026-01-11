@@ -24,12 +24,12 @@ enum class MessageOpcode : uint16_t {
 struct __attribute__((packed)) IthoHeader {
   union {
     uint8_t raw;
-    struct {
-      uint8_t : 2;
-      MessageType MESSAGE_TYPE : 2;
-      uint8_t DEVICE_ID : 2;
-      bool PARAM0 : 1;
+    struct {  // LSB first
       bool PARAM1 : 1;
+      bool PARAM0 : 1;
+      uint8_t DEVICE_ID : 2;
+      MessageType MESSAGE_TYPE : 2;
+      uint8_t : 2;
     };
   };
 };
