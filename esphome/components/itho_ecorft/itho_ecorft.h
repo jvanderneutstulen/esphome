@@ -11,6 +11,9 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
  public:
   IthoEcoRftFan(int speed_count) : speed_count_(speed_count) {}
 
+  uint32_t get_rf_address() { return rf_address_ & 0xffffff; };
+  uint32_t get_peer_rf_address() { return peer_rf_address_ & 0xffffff; };
+
   void set_preset_modes(std::initializer_list<const char *> presets) { preset_modes_ = presets; }
   void set_rf_address(uint64_t rf_address) { rf_address_ = rf_address; }
   void set_peer_rf_address(uint64_t peer_rf_address) { peer_rf_address_ = peer_rf_address; }
@@ -37,6 +40,8 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
 
   void control(const fan::FanCall &call) override;
   void write_state_();
+
+  void send_speed_level_(uint8_t level);
 };
 
 template<typename... Ts> class JoinAction : public Action<Ts...> {

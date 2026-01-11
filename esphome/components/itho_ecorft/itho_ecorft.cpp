@@ -65,6 +65,36 @@ void IthoEcoRftFan::write_state_() {
   // float speed = this->state ? static_cast<float>(this->speed) / static_cast<float>(this->speed_count_) : 0.0f;
   int level = this->state ? this->speed : 0;
   ESP_LOGD(TAG, "Set speed level %d", level);
+  this->send_speed_level_(level);
+}
+
+void IthoEcoRftFan::send_speed_level_(uint8_t level) {
+  SpeedCommand itho_speed_level = SpeedCommand::MEDIUM;
+
+  switch (level) {
+    case 0:
+      itho_speed_level = SpeedCommand::LOW;
+      break;
+    case 1:
+      itho_speed_level = SpeedCommand::MEDIUM;
+      break;
+    case 2:
+      itho_speed_level = SpeedCommand::HIGH;
+      break;
+  }
+
+#if 1
+  IthoSpeedCommandMessage *cmd{nullptr};
+  cmd = new IthoSpeedCommandMessage();
+  // cmd = new IthoSpeedCommandMessage();
+  // cmd->set_parent(this);
+  cmd->set_speed(itho_speed_level);
+  // cmd->set_src_addr(rf_address_);
+  // cmd->set_param0(0x23);
+
+  std::vector<uint8_t> msg = cmd->encode(this);
+  ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
+#endif
 }
 
 void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {

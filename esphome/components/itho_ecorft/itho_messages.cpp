@@ -79,6 +79,9 @@ IthoMessage *IthoMessage::decode(std::vector<uint8_t> packet, IthoEcoRftFan *par
     case MessageOpcode::FAN_STATUS:
       msg = new IthoFanStatusMessage();
       break;
+    case MessageOpcode::SPEED_COMMAND:
+      msg = new IthoSpeedCommandMessage();
+      break;
     default:
       ESP_LOGD(TAG, "Unknown opcode %04x", opcode);
       return nullptr;
@@ -108,6 +111,91 @@ uint8_t IthoMessage::calc_checksum(std::vector<uint8_t> packet, uint8_t len) {
   return 0 - sum;
 }
 
+std::vector<uint8_t> IthoMessage::encode(IthoEcoRftFan *parent) {
+  if (parent != nullptr) {
+    this->set_parent(parent);
+  }
+  this->init_msg();
+
+  std::vector<uint8_t> payload = this->encode_payload();
+  uint8_t length = payload.size();
+
+  IthoHeader hdr{};
+  hdr.MESSAGE_TYPE = this->msg_type_;
+  hdr.PARAM0 = this->has_param0_;
+  hdr.PARAM1 = this->has_param1_;
+
+  std::vector<uint8_t> msg = {hdr.raw};
+
+  uint8_t device_id_mask = (device_id2_ != 0) << 2 | (device_id1_ != 0) << 1 | (device_id0_ != 0);
+  switch (device_id_mask) {
+    case 0b111:
+      // All
+      hdr.DEVICE_ID = 0b00;
+      msg.push_back(uint8_t(this->device_id0_ >> 16));
+      msg.push_back(uint8_t(this->device_id0_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id0_ & 0xff));
+
+      msg.push_back(uint8_t(this->device_id1_ >> 16));
+      msg.push_back(uint8_t(this->device_id1_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id1_ & 0xff));
+
+      msg.push_back(uint8_t(this->device_id2_ >> 16));
+      msg.push_back(uint8_t(this->device_id2_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id2_ & 0xff));
+
+      break;
+    case 0b101:
+      hdr.DEVICE_ID = 0b10;
+      msg.push_back(uint8_t(this->device_id0_ >> 16));
+      msg.push_back(uint8_t(this->device_id0_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id0_ & 0xff));
+
+      msg.push_back(uint8_t(this->device_id2_ >> 16));
+      msg.push_back(uint8_t(this->device_id2_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id2_ & 0xff));
+
+      break;
+    case 0b100:
+      hdr.DEVICE_ID = 0b01;
+
+      msg.push_back(uint8_t(this->device_id2_ >> 16));
+      msg.push_back(uint8_t(this->device_id2_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id2_ & 0xff));
+      break;
+    case 0b011:
+      hdr.DEVICE_ID = 0b11;
+
+      msg.push_back(uint8_t(this->device_id0_ >> 16));
+      msg.push_back(uint8_t(this->device_id0_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id0_ & 0xff));
+
+      msg.push_back(uint8_t(this->device_id1_ >> 16));
+      msg.push_back(uint8_t(this->device_id1_ >> 8 & 0xff));
+      msg.push_back(uint8_t(this->device_id1_ & 0xff));
+
+    default:
+      ESP_LOGW(TAG, "Invalid combination of device ids");
+      return std::vector<uint8_t>{};
+  }
+
+  msg[0] = hdr.raw;  // DEVICE_ID is now known
+  if (has_param0_) {
+    msg.push_back(param0_);
+  }
+  if (has_param1_) {
+    msg.push_back(param1_);
+  }
+  msg.push_back(uint8_t(opcode_ >> 8));
+  msg.push_back(uint8_t(opcode_ & 0xff));
+  msg.push_back(length);
+  msg.insert(msg.end(), payload.begin(), payload.end());
+  uint8_t checksum = IthoMessage::calc_checksum(msg, msg.size());
+  msg.push_back(checksum);
+
+  return msg;
+}
+
 void IthoFanStatusMessage::decode_payload(std::vector<uint8_t> payload) {
   if (payload.size() < 3) {
     ESP_LOGW(TAG, "Fan speed status payload too small");
@@ -135,6 +223,22 @@ void IthoFanStatusMessage::process_msg() {
     this->parent_->speed = speed;
   }
   this->parent_->publish_state();
+}
+
+void IthoSpeedCommandMessage::init_msg() {
+  if (parent_ == nullptr) {
+    return;
+  }
+
+  msg_type_ = MessageType::INFORM;
+  device_id2_ = parent_->get_rf_address();
+  this->set_param0(0x42);
+}
+
+std::vector<uint8_t> IthoSpeedCommandMessage::encode_payload() {
+  std::vector<uint8_t> payload{0x00, 0x00};
+  payload.push_back(speed_);
+  return payload;
 }
 
 }  // namespace itho_ecorft
