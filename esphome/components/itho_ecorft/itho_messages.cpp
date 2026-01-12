@@ -236,8 +236,8 @@ void IthoSpeedCommandMessage::init_msg() {
 }
 
 std::vector<uint8_t> IthoSpeedCommandMessage::encode_payload() {
-  std::vector<uint8_t> payload{0x00, 0x00};
-  payload.push_back(speed_);
+  std::vector<uint8_t> payload{0x00, 0x00, 0x04};
+  payload[1] = speed_;
   return payload;
 }
 

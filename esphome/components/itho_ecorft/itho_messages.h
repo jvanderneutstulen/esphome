@@ -10,6 +10,8 @@
 namespace esphome {
 namespace itho_ecorft {
 
+class IthoEcoRftFan;
+
 static const uint8_t HEADER_MESSAGE_TYPE_MASK = 0x30;
 static const uint8_t MESSAGE_TYPE_REQUEST = 0x00;
 static const uint8_t MESSAGE_TYPE_INFORM = 0x10;

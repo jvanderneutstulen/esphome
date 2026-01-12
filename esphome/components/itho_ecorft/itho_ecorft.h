@@ -4,8 +4,12 @@
 #include "esphome/components/cc1101/cc1101.h"
 #include "esphome/components/fan/fan.h"
 
+//#include "itho_messages.h"
+
 namespace esphome {
 namespace itho_ecorft {
+
+class IthoMessage;
 
 class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Listener {
  public:
@@ -28,6 +32,7 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
 
   void on_packet(const std::vector<uint8_t> &packet, float freq_offset, float rssi, uint8_t lqi);
   void decode_packet(const std::vector<uint8_t> &packet);
+  std::vector<uint8_t> encode_packet(IthoMessage *msg_obj);
 
  protected:
   int speed_count_{};

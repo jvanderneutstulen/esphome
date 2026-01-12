@@ -7,11 +7,15 @@ namespace itho_ecorft {
 
 static const char *const TAG = "fan.itho_ecorft";
 
-const std::vector<uint8_t> ITHO_CC1101_HEADER{0x00, 0xb3, 0x2a, 0xab, 0x2a};
-const uint8_t ITHO_CC1101_FOOTER_EVEN = 0xac;
-const uint8_t ITHO_CC1101_FOOTER_ODD = 0xca;
-const std::vector<uint8_t> ITHO_CC1101_FOOTER{ITHO_CC1101_FOOTER_EVEN, ITHO_CC1101_FOOTER_ODD};
-//    static const uint8_t POSTAMBLE = 0xaa;
+static const std::vector<uint8_t> ITHO_CC1101_HEADER{0x00, 0xb3, 0x2a, 0xab, 0x2a};
+static const uint8_t ITHO_CC1101_FOOTER_EVEN = 0xac;
+static const uint8_t ITHO_CC1101_FOOTER_ODD = 0xca;
+static const std::vector<uint8_t> ITHO_CC1101_FOOTER{ITHO_CC1101_FOOTER_EVEN, ITHO_CC1101_FOOTER_ODD};
+static const uint8_t POSTAMBLE = 0xaa;
+
+const uint8_t reverse_nibble_lookup[16]{
+    0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe, 0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf,
+};
 
 fan::FanCall IthoEcoRftFan::join() {
   ESP_LOGD(TAG, "Joining");
@@ -44,7 +48,6 @@ void IthoEcoRftFan::setup() {
   // Construct traits
   this->traits_ = fan::FanTraits(false, true, false, this->speed_count_);
   this->traits_.set_supported_preset_modes(this->preset_modes_);
-
   this->setup_cc1101();
 }
 
@@ -94,6 +97,11 @@ void IthoEcoRftFan::send_speed_level_(uint8_t level) {
 
   std::vector<uint8_t> msg = cmd->encode(this);
   ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
+  auto pkt = this->encode_packet(cmd);
+  ESP_LOGVV(TAG, "Raw data (%d) %s", pkt.size(), format_hex(pkt).c_str());
+  // this->send_packet(cmd);
+  // IthoEcoRftFan::decode_packet(pkt);
+  this->cc1101_->transmit_packet(pkt);
 #endif
 }
 
@@ -154,10 +162,6 @@ void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {
     msg[i / 2] = msg[i / 2] | (nibble << (4 * (1 - i % 2)));
   }
 
-  const uint8_t reverse_nibble_lookup[16]{
-      0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe, 0x1, 0x9, 0x5, 0xd, 0x3, 0xb, 0x7, 0xf,
-  };
-
   // Reverse each nibble
   for (uint8_t i = 0; i < msg.size(); ++i) {
     uint8_t n = msg[i];
@@ -176,6 +180,54 @@ void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {
 void IthoEcoRftFan::on_packet(const std::vector<uint8_t> &packet, float freq_offset, float rssi, uint8_t lqi) {
   ESP_LOGVV(TAG, "packet %s rssi %.1f dBm lqi %u offset %.1f", format_hex(packet).c_str(), rssi, lqi, freq_offset);
   this->decode_packet(packet);
+}
+
+std::vector<uint8_t> IthoEcoRftFan::encode_packet(IthoMessage *msg_obj) {
+  std::vector<uint8_t> msg = msg_obj->encode(this);
+  ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
+
+  // for (uint8_t i = 0; i < msg.size(); ++i) {
+  //   uint8_t n = msg[i];
+  //   msg[i] = reverse_nibble_lookup[n >> 4] << 4 | reverse_nibble_lookup[n & 0x0f];
+  // }
+
+  std::vector<bool> m1{};
+  m1.resize(((msg.size() * 2 * 5 + 3) & -4), true);  // 2 nibble per byte, 5 bits per nibble, round up to multiple of 4
+  uint16_t idx;
+  bool v;
+  for (uint8_t i = 0; i < msg.size(); i++) {  // for every byte
+    for (uint8_t j = 0; j < 2; j++) {         // for every nibble
+      uint8_t n = msg[i] >> (4 * (1 - j));    // select nibble
+      for (uint8_t k = 0; k < 4; k++) {       // for every bit
+        idx = 5 * (2 * i + j) + k;            // calc bit index
+        v = (n >> k) & 1;                     // select bit, reverse order in nibble
+        m1[idx] = v;                          // assign
+      }
+    }
+  }
+
+  std::vector<uint8_t> packet{};
+  packet.resize(m1.size() / 4, 0);
+  for (uint8_t i = 0; i < m1.size(); i++) {
+    packet[i / 4] |= (m1[i] << (7 - 2 * (i % 4))) | (m1[i] << (6 - 2 * (i % 4)));
+  }
+
+  for (uint8_t i = 0; i < packet.size(); ++i) {
+    packet[i] = packet[i] xor 0x55;
+  }
+
+  std::vector<uint8_t> rf_packet = ITHO_CC1101_HEADER;
+  rf_packet.insert(rf_packet.end(), packet.begin(), packet.end());
+  if (msg.size() % 2 == 0) {
+    rf_packet.push_back(ITHO_CC1101_FOOTER_EVEN);
+  } else {
+    rf_packet.push_back(ITHO_CC1101_FOOTER_ODD);
+  }
+  while (rf_packet.size() < 64) {
+    rf_packet.push_back(POSTAMBLE);
+  }
+
+  return rf_packet;
 }
 
 }  // namespace itho_ecorft
