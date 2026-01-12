@@ -241,5 +241,21 @@ std::vector<uint8_t> IthoSpeedCommandMessage::encode_payload() {
   return payload;
 }
 
+void IthoSpeedDemandCommandMessage::init_msg() {
+  if (parent_ == nullptr) {
+    return;
+  }
+
+  msg_type_ = MessageType::INFORM;
+  device_id2_ = parent_->get_rf_address();
+  this->set_param0(this->parent_->get_counter());
+}
+
+std::vector<uint8_t> IthoSpeedDemandCommandMessage::encode_payload() {
+  std::vector<uint8_t> payload{0x00, 0x00, 0x00};
+  payload[2] = speed_ << 1;
+  return payload;
+}
+
 }  // namespace itho_ecorft
 }  // namespace esphome

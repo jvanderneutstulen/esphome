@@ -41,6 +41,7 @@ enum MessageOpcode : uint16_t {
   FAN_STATUS = 0x31d9,
   // JOIN_COMMAND = 0x1fc9,
   SPEED_COMMAND = 0x22f1,
+  SPEED_DEMAND_COMMAND = 0x31e0,
 };
 
 enum SpeedCommand : uint8_t {
@@ -133,7 +134,6 @@ class IthoFanStatusMessage : public IthoMessage {
   uint8_t speed_percent_{0xff};
 };
 
-#if 1
 class IthoSpeedCommandMessage : public IthoMessage {
  public:
   IthoSpeedCommandMessage() {
@@ -156,28 +156,28 @@ class IthoSpeedCommandMessage : public IthoMessage {
   SpeedCommand speed_{SpeedCommand::MEDIUM};
   // uint8_t speed_percent_{0xff};
 };
-#else
-class IthoSpeedCommandMessage : public IthoMessage {
+
+class IthoSpeedDemandCommandMessage : public IthoMessage {
  public:
-  IthoSpeedCommandMessage() { opcode_ = MessageOpcode::SPEED_COMMAND; };
+  IthoSpeedDemandCommandMessage() {
+    opcode_ = MessageOpcode::SPEED_DEMAND_COMMAND;
+    addr_spec_ = ADDRESS_SPEC_1;
+    has_param0_ = true;
+  };
 
   void set_src_addr(uint32_t src_addr) override { device_id2_ = src_addr; };
 
-  void set_speed(SpeedCommand speed) { speed_ = speed; };
-
+  void set_speed(uint8_t speed) { speed_ = speed; };
   // void process_msg() override;
 
  private:
+  void init_msg() override;
   std::vector<uint8_t> encode_payload() override;
-  // std::vector<uint8_t> encode_payload() override { return std::vector<uint8_t> {0x00}; };
   // void decode_payload(std::vector<uint8_t> payload) override;
 
  protected:
-  SpeedCommand speed_{SpeedCommand::MEDIUM};
-  // uint8_t speed_percent_{0xff};
+  uint8_t speed_{0xff};
 };
-
-#endif
 
 }  // namespace itho_ecorft
 }  // namespace esphome

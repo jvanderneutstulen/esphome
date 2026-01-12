@@ -73,28 +73,32 @@ void IthoEcoRftFan::write_state_() {
 
 void IthoEcoRftFan::send_speed_level_(uint8_t level) {
   SpeedCommand itho_speed_level = SpeedCommand::MEDIUM;
+  uint8_t speed_level = 45;
 
   switch (level) {
     case 0:
       itho_speed_level = SpeedCommand::LOW;
+      speed_level = 10;
       break;
     case 1:
       itho_speed_level = SpeedCommand::MEDIUM;
+      speed_level = 55;
       break;
     case 2:
       itho_speed_level = SpeedCommand::HIGH;
+      speed_level = 95;
       break;
   }
 
-#if 1
+#if 0
   IthoSpeedCommandMessage *cmd{nullptr};
   cmd = new IthoSpeedCommandMessage();
-  // cmd = new IthoSpeedCommandMessage();
-  // cmd->set_parent(this);
   cmd->set_speed(itho_speed_level);
-  // cmd->set_src_addr(rf_address_);
-  // cmd->set_param0(0x23);
-
+#else
+  IthoSpeedDemandCommandMessage *cmd{nullptr};
+  cmd = new IthoSpeedDemandCommandMessage();
+  cmd->set_speed(speed_level);
+#endif
   std::vector<uint8_t> msg = cmd->encode(this);
   ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
   auto pkt = this->encode_packet(cmd);
@@ -102,7 +106,6 @@ void IthoEcoRftFan::send_speed_level_(uint8_t level) {
   // this->send_packet(cmd);
   // IthoEcoRftFan::decode_packet(pkt);
   this->cc1101_->transmit_packet(pkt);
-#endif
 }
 
 void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {
