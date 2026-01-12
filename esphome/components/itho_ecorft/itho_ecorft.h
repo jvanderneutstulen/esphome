@@ -13,10 +13,11 @@ class IthoMessage;
 
 class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Listener {
  public:
-  IthoEcoRftFan(int speed_count) : speed_count_(speed_count) {}
+  IthoEcoRftFan(int speed_count) : speed_count_(speed_count) { counter_ = millis() & 0xff; }
 
   uint32_t get_rf_address() { return rf_address_ & 0xffffff; };
   uint32_t get_peer_rf_address() { return peer_rf_address_ & 0xffffff; };
+  uint8_t get_counter() { return ++counter_; };
 
   void set_preset_modes(std::initializer_list<const char *> presets) { preset_modes_ = presets; }
   void set_rf_address(uint64_t rf_address) { rf_address_ = rf_address; }
@@ -40,6 +41,7 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
   std::vector<const char *> preset_modes_{};
   uint64_t rf_address_{};
   uint64_t peer_rf_address_{};
+  uint8_t counter_{};
 
   cc1101::CC1101Component *cc1101_{nullptr};
 

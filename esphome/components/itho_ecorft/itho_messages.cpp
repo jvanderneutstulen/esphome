@@ -232,7 +232,7 @@ void IthoSpeedCommandMessage::init_msg() {
 
   msg_type_ = MessageType::INFORM;
   device_id2_ = parent_->get_rf_address();
-  this->set_param0(0x42);
+  this->set_param0(this->parent_->get_counter());
 }
 
 std::vector<uint8_t> IthoSpeedCommandMessage::encode_payload() {
