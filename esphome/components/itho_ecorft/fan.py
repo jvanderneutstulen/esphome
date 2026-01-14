@@ -6,7 +6,7 @@ from esphome.components.fan import validate_preset_modes
 import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_PRESET_MODES
 
-SPEED_COUNT = 2
+SPEED_COUNT = 100
 
 CODEOWNERS = ["@jvanderneutstulen"]
 
@@ -48,7 +48,9 @@ CONFIG_SCHEMA = (
             cv.Required(CONF_CC1101_ID): cv.use_id(cc1101.CC1101Component),
             cv.Required(CONF_RF_ADDRESS): _validate_rf_address,
             cv.Optional(CONF_PEER_RF_ADDRESS): _validate_rf_address,
-            cv.Optional(CONF_PRESET_MODES): validate_preset_modes,
+            cv.Optional(
+                CONF_PRESET_MODES, default=["low", "medium", "high"]
+            ): validate_preset_modes,
         }
     )
     .extend(cv.COMPONENT_SCHEMA)

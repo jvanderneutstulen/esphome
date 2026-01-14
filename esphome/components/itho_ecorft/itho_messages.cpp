@@ -212,15 +212,15 @@ void IthoFanStatusMessage::process_msg() {
   }
   ESP_LOGD(TAG, "Fan speed is %d%%", this->speed_percent_);
 
-  int speed = 1;
-  if (this->speed_percent_ < 25) {
-    speed = 0;
-  } else if (this->speed_percent_ > 75) {
-    speed = 2;
-  }
-  this->parent_->state = speed > 0;
-  if (speed > 0) {
-    this->parent_->speed = speed;
+  this->parent_->state = this->speed_percent_ > 0;
+  if (this->parent_->state) {
+    this->parent_->speed = this->speed_percent_;
+    if (this->speed_percent_ >= 100)
+      this->parent_->set_preset_mode_("high");
+    else
+      this->parent_->set_preset_mode_("medium");
+  } else {
+    this->parent_->set_preset_mode_("low");
   }
   this->parent_->publish_state();
 }

@@ -9,9 +9,13 @@
 namespace esphome {
 namespace itho_ecorft {
 
+// Forward declarations
 class IthoMessage;
+class IthoFanStatusMessage;
 
 class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Listener {
+  friend class IthoFanStatusMessage;
+
  public:
   IthoEcoRftFan(int speed_count) : speed_count_(speed_count) { counter_ = millis() & 0xff; }
 
@@ -39,6 +43,7 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
   int speed_count_{};
   fan::FanTraits traits_;
   std::vector<const char *> preset_modes_{};
+
   uint64_t rf_address_{};
   uint64_t peer_rf_address_{};
   uint8_t counter_{};
@@ -48,7 +53,8 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
   void control(const fan::FanCall &call) override;
   void write_state_();
 
-  void send_speed_level_(uint8_t level);
+  void send_speed_();
+  void send_mode_();
 };
 
 template<typename... Ts> class JoinAction : public Action<Ts...> {

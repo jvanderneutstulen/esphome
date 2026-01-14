@@ -56,11 +56,18 @@ void IthoEcoRftFan::dump_config() { LOG_FAN("", "Itho EcoRft Fan", this); }
 void IthoEcoRftFan::control(const fan::FanCall &call) {
   if (call.get_state().has_value())
     this->state = *call.get_state();
-  if (call.get_speed().has_value())
-    this->speed = *call.get_speed();
-  this->set_preset_mode_(call.get_preset_mode());
 
-  this->write_state_();
+  if (call.get_speed().has_value()) {
+    this->speed = *call.get_speed();
+  }
+
+  if (call.has_preset_mode()) {
+    this->set_preset_mode_(call.get_preset_mode());
+    this->send_mode_();
+  }
+
+  this->send_speed_();
+
   this->publish_state();
 }
 
@@ -68,37 +75,51 @@ void IthoEcoRftFan::write_state_() {
   // float speed = this->state ? static_cast<float>(this->speed) / static_cast<float>(this->speed_count_) : 0.0f;
   int level = this->state ? this->speed : 0;
   ESP_LOGD(TAG, "Set speed level %d", level);
-  this->send_speed_level_(level);
+  // this->send_speed_level_(level);
 }
 
-void IthoEcoRftFan::send_speed_level_(uint8_t level) {
-  SpeedCommand itho_speed_level = SpeedCommand::MEDIUM;
-  uint8_t speed_level = 45;
+void IthoEcoRftFan::send_speed_() {
+  int speed = this->speed;
 
-  switch (level) {
-    case 0:
-      itho_speed_level = SpeedCommand::LOW;
-      speed_level = 10;
-      break;
-    case 1:
-      itho_speed_level = SpeedCommand::MEDIUM;
-      speed_level = 55;
-      break;
-    case 2:
-      itho_speed_level = SpeedCommand::HIGH;
-      speed_level = 95;
-      break;
-  }
+  // Clamp speed so modes LOW and HIGH can be detected
+  if (speed <= 0)
+    speed = 0;
+  if (speed >= 100)
+    speed = 99;
 
-#if 0
-  IthoSpeedCommandMessage *cmd{nullptr};
-  cmd = new IthoSpeedCommandMessage();
-  cmd->set_speed(itho_speed_level);
-#else
   IthoSpeedDemandCommandMessage *cmd{nullptr};
   cmd = new IthoSpeedDemandCommandMessage();
-  cmd->set_speed(speed_level);
-#endif
+  cmd->set_speed(speed);
+
+  std::vector<uint8_t> msg = cmd->encode(this);
+  ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
+  auto pkt = this->encode_packet(cmd);
+  ESP_LOGVV(TAG, "Raw data (%d) %s", pkt.size(), format_hex(pkt).c_str());
+  // this->send_packet(cmd);
+  // IthoEcoRftFan::decode_packet(pkt);
+  this->cc1101_->transmit_packet(pkt);
+}
+
+void IthoEcoRftFan::send_mode_() {
+  SpeedCommand itho_speed_mode = SpeedCommand::MEDIUM;
+
+  const char *mode = this->get_preset_mode();
+
+  if (mode == "low") {
+    itho_speed_mode = SpeedCommand::LOW;
+  } else if (mode == "auto" || mode == "medium") {
+    itho_speed_mode = SpeedCommand::MEDIUM;
+  } else if (mode == "high") {
+    itho_speed_mode = SpeedCommand::HIGH;
+  } else {
+    // not handled
+    return;
+  }
+
+  IthoSpeedCommandMessage *cmd{nullptr};
+  cmd = new IthoSpeedCommandMessage();
+  cmd->set_speed(itho_speed_mode);
+
   std::vector<uint8_t> msg = cmd->encode(this);
   ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
   auto pkt = this->encode_packet(cmd);
@@ -176,6 +197,8 @@ void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {
   if (msg_obj == nullptr) {
     return;
   }
+
+  // delay(100);
 
   msg_obj->process_msg();
 }
