@@ -53,6 +53,8 @@ class IthoEcoRftFan : public Component, public fan::Fan, public cc1101::CC1101Li
   void control(const fan::FanCall &call) override;
   void write_state_();
 
+  void transmit_command_(IthoMessage *cmd);
+
   void send_speed_();
   void send_mode_();
 };

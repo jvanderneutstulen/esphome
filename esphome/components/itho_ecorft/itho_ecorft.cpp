@@ -78,8 +78,27 @@ void IthoEcoRftFan::write_state_() {
   // this->send_speed_level_(level);
 }
 
+void IthoEcoRftFan::transmit_command_(IthoMessage *cmd) {
+  // std::vector<uint8_t> msg = cmd->encode(this);
+  // ESP_LOGV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
+
+  auto pkt = this->encode_packet(cmd);
+  ESP_LOGVV(TAG, "Raw data (%d) %s", pkt.size(), format_hex(pkt).c_str());
+
+  // Send 3 times
+  this->cc1101_->transmit_packet(pkt);
+
+  this->set_timeout(100, [this, pkt]() {
+    this->cc1101_->transmit_packet(pkt);
+
+    this->set_timeout(100, [this, pkt]() { this->cc1101_->transmit_packet(pkt); });
+  });
+}
+
 void IthoEcoRftFan::send_speed_() {
   int speed = this->speed;
+
+  ESP_LOGD(TAG, "Set speed %d%%", speed);
 
   // Clamp speed so modes LOW and HIGH can be detected
   if (speed <= 0)
@@ -91,19 +110,15 @@ void IthoEcoRftFan::send_speed_() {
   cmd = new IthoSpeedDemandCommandMessage();
   cmd->set_speed(speed);
 
-  std::vector<uint8_t> msg = cmd->encode(this);
-  ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
-  auto pkt = this->encode_packet(cmd);
-  ESP_LOGVV(TAG, "Raw data (%d) %s", pkt.size(), format_hex(pkt).c_str());
-  // this->send_packet(cmd);
-  // IthoEcoRftFan::decode_packet(pkt);
-  this->cc1101_->transmit_packet(pkt);
+  this->transmit_command_(cmd);
 }
 
 void IthoEcoRftFan::send_mode_() {
   SpeedCommand itho_speed_mode = SpeedCommand::MEDIUM;
 
   const char *mode = this->get_preset_mode();
+
+  ESP_LOGD(TAG, "Set mode %s", mode);
 
   if (mode == "low") {
     itho_speed_mode = SpeedCommand::LOW;
@@ -120,13 +135,7 @@ void IthoEcoRftFan::send_mode_() {
   cmd = new IthoSpeedCommandMessage();
   cmd->set_speed(itho_speed_mode);
 
-  std::vector<uint8_t> msg = cmd->encode(this);
-  ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
-  auto pkt = this->encode_packet(cmd);
-  ESP_LOGVV(TAG, "Raw data (%d) %s", pkt.size(), format_hex(pkt).c_str());
-  // this->send_packet(cmd);
-  // IthoEcoRftFan::decode_packet(pkt);
-  this->cc1101_->transmit_packet(pkt);
+  this->transmit_command_(cmd);
 }
 
 void IthoEcoRftFan::decode_packet(const std::vector<uint8_t> &packet) {
@@ -210,7 +219,7 @@ void IthoEcoRftFan::on_packet(const std::vector<uint8_t> &packet, float freq_off
 
 std::vector<uint8_t> IthoEcoRftFan::encode_packet(IthoMessage *msg_obj) {
   std::vector<uint8_t> msg = msg_obj->encode(this);
-  ESP_LOGVV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
+  ESP_LOGV(TAG, "Raw Itho command (%d) %s", msg.size(), format_hex(msg).c_str());
 
   // for (uint8_t i = 0; i < msg.size(); ++i) {
   //   uint8_t n = msg[i];
