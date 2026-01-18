@@ -116,7 +116,7 @@ void IthoEcoRftFan::send_speed_() {
 void IthoEcoRftFan::send_mode_() {
   SpeedCommand itho_speed_mode = SpeedCommand::MEDIUM;
 
-  const char *mode = this->get_preset_mode();
+  StringRef mode = this->get_preset_mode();
 
   ESP_LOGD(TAG, "Set mode %s", mode);
 
