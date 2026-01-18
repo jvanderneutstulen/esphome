@@ -74,6 +74,7 @@ class CC1101Component : public Component,
   // Packet mode operations
   CC1101Error transmit_packet(const std::vector<uint8_t> &packet);
   Trigger<std::vector<uint8_t>, float, float, uint8_t> *get_packet_trigger() const { return this->packet_trigger_; }
+  size_t get_max_packet_size();
 
  protected:
   uint16_t chip_id_{0};
